@@ -96,7 +96,7 @@ namespace food.Tests
 
             DesktopShortcutService.Create(true, Desktop, Programs, "");
 
-            Assert.Equal(["其他程式.appref-ms", AppRefName], DesktopFiles().Order().ToArray());
+            Assert.Equal(new[] { "其他程式.appref-ms", AppRefName }.Order(StringComparer.Ordinal), DesktopFiles().Order(StringComparer.Ordinal));
             Assert.Contains("OtherApp.application", File.ReadAllText(other));
         }
 
@@ -201,7 +201,8 @@ namespace food.Tests
 
             DesktopShortcutService.TidyUp(Desktop, Programs, Taskbar, FakeInstalledExe("v12"));
 
-            Assert.Equal(["餐廳收藏.appref-ms", "簡易記帳.appref-ms"], DesktopFiles().Order().ToArray());
+            // 用 Ordinal 排序：依語系排序時，中文的先後在中文 Windows（筆畫）與 GitHub Actions（英文）上不同
+            Assert.Equal(new[] { "餐廳收藏.appref-ms", "簡易記帳.appref-ms" }.Order(StringComparer.Ordinal), DesktopFiles().Order(StringComparer.Ordinal));
         }
 
         [Fact]

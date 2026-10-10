@@ -33,6 +33,8 @@
         <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#9CA3AF"/>
         <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#6B7280"/>
         <SolidColorBrush x:Key="StarBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="StarSoftBrush" Color="#FEF3C7"/>
+        <SolidColorBrush x:Key="StarEmptyBrush" Color="#E2DCD5"/>
 
         <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#F97316" Offset="0"/>

@@ -57,6 +57,8 @@ namespace food.Services
             ("ScrollThumbHoverBrush",   "#9CA3AF", "#57514C"),
             ("ScrollThumbPressedBrush", "#6B7280", "#6B7280"),
             ("StarBrush",               "#F59E0B", "#FBBF24"),
+            ("StarSoftBrush",           "#FEF3C7", "#3A2E12"),
+            ("StarEmptyBrush",          "#E2DCD5", "#4A443F"),
         };
 
         /// <summary>標題圖示的漸層（左上 → 右下）。</summary>

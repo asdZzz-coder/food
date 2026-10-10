@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using Microsoft.Win32;
 using food.Models;
@@ -20,7 +21,7 @@ namespace food
         private bool _rebuildingCategories;
         private bool _fillingCombos;
 
-        private const string NoneText = "（不指定）";
+        private const string NoneText = "不指定";
 
         public MainWindow()
         {
@@ -31,10 +32,6 @@ namespace food
 
             _data = DataStore.Load();
             foreach (var country in CategoryService.Children(_data, null)) _expanded.Add(country.Id);
-
-            RatingBox.ItemsSource = Enumerable.Range(0, 6).Reverse()
-                .Select(n => new RatingOption(n, n == 0 ? "未評分" : new string('★', n) + new string('☆', 5 - n)))
-                .ToList();
 
             RebuildCategories();
             RefreshList();
@@ -343,9 +340,8 @@ namespace food
             RestaurantList.ItemsSource = rows;
             RestaurantList.SelectedItem = rows.FirstOrDefault(r => r.Model.Id == selectedId);
 
-            BreadcrumbText.Text = _selectedCategoryId == null
-                ? $"全部餐廳 · {rows.Count} 間"
-                : $"{CategoryService.PathText(_data, _selectedCategoryId)} · {rows.Count} 間";
+            UpdateBreadcrumb();
+            ListCountText.Text = $"{rows.Count} 間";
             EmptyText.Text = _data.Categories.Count == 0
                 ? "還沒有任何分類。\n先按左上角「新增國家」開始吧！"
                 : keyword.Length > 0
@@ -353,21 +349,58 @@ namespace food
                     : "這裡還沒有餐廳。\n在右側填好資料後按「新增」。";
         }
 
+        /// <summary>清單上方的大字路徑：上層分類用淡色，目前這一層用正常文字色。</summary>
+        private void UpdateBreadcrumb()
+        {
+            BreadcrumbText.Inlines.Clear();
+            var path = CategoryService.PathOf(_data, _selectedCategoryId);
+            if (path.Count == 0)
+            {
+                BreadcrumbText.Inlines.Add(new Run("全部餐廳"));
+                return;
+            }
+            foreach (var c in path.SkipLast(1))
+            {
+                var parent = new Run(c.Name + "  ›  ") { FontWeight = FontWeights.Normal };
+                parent.SetResourceReference(TextElement.ForegroundProperty, "MutedBrush");
+                BreadcrumbText.Inlines.Add(parent);
+            }
+            BreadcrumbText.Inlines.Add(new Run(path[^1].Name));
+        }
+
         private Restaurant? SelectedRestaurant => (RestaurantList.SelectedItem as RestaurantRow)?.Model;
 
         private void RestaurantList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (SelectedRestaurant is { } r) FillForm(r);
+            UpdateFormMode();
         }
 
         // ---------- 右側表單 ----------
+
+        /// <summary>表單標題：沒選餐廳時是「新增餐廳」，選了就是「編輯餐廳」。</summary>
+        private void UpdateFormMode()
+        {
+            if (SelectedRestaurant is { } r)
+            {
+                FormIcon.Text = "";
+                FormTitle.Text = "編輯餐廳";
+                FormSubtitle.Text = $"收藏於 {r.CreatedAt:yyyy/MM/dd}";
+            }
+            else
+            {
+                FormIcon.Text = "";
+                FormTitle.Text = "新增餐廳";
+                FormSubtitle.Text = "填好資料後按下方「新增」";
+            }
+        }
 
         private void FillForm(Restaurant r)
         {
             NameBox.Text = r.Name;
             AddressBox.Text = r.Address;
             PhoneBox.Text = r.Phone;
-            RatingBox.SelectedValue = r.Rating;
+            SetRating(r.Rating);
             NoteBox.Text = r.Note;
             SetFormCategory(r.CategoryId);
         }
@@ -377,10 +410,44 @@ namespace food
             NameBox.Clear();
             AddressBox.Clear();
             PhoneBox.Clear();
-            RatingBox.SelectedValue = 0;
+            SetRating(0);
             NoteBox.Clear();
             SetFormCategory(_selectedCategoryId);
+            UpdateFormMode();
         }
+
+        // ---------- 評分：五顆星 ----------
+
+        private int _rating;
+
+        private static readonly string[] RatingWords = { "尚未評分", "不推薦", "普通", "還不錯", "好吃", "超推薦！" };
+
+        private void SetRating(int value)
+        {
+            _rating = Math.Clamp(value, 0, 5);
+            PaintStars(_rating);
+        }
+
+        /// <summary>前 count 顆星塗成金色，其餘為灰色；旁邊顯示對應的文字。</summary>
+        private void PaintStars(int count)
+        {
+            foreach (var star in StarPanel.Children.OfType<Button>())
+                star.SetResourceReference(ForegroundProperty, int.Parse((string)star.Tag) <= count ? "StarBrush" : "StarEmptyBrush");
+            RatingLabel.Text = count == 0 ? RatingWords[0] : $"{count} 分 · {RatingWords[count]}";
+        }
+
+        // 點第幾顆就是幾分；再點一次目前的分數則清除評分
+        private void Star_Click(object sender, RoutedEventArgs e)
+        {
+            int value = int.Parse((string)((Button)sender).Tag);
+            SetRating(value == _rating ? 0 : value);
+        }
+
+        // 滑鼠移到星星上時先預覽分數，移開後恢復
+        private void Star_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) =>
+            PaintStars(int.Parse((string)((Button)sender).Tag));
+
+        private void StarPanel_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) => PaintStars(_rating);
 
         private void ClearForm_Click(object sender, RoutedEventArgs e)
         {
@@ -458,7 +525,7 @@ namespace food
                 CategoryId = categoryId,
                 Address = AddressBox.Text.Trim(),
                 Phone = PhoneBox.Text.Trim(),
-                Rating = RatingBox.SelectedValue as int? ?? 0,
+                Rating = _rating,
                 Note = NoteBox.Text.Trim(),
             };
         }
@@ -558,9 +625,24 @@ namespace food
         {
             // 視窗標題列顯示版本：安裝版為「餐廳收藏 v1.0.0」，直接從 Visual Studio 執行則標示開發版
             Title = _updater.IsInstalled ? $"餐廳收藏 v{_updater.CurrentVersion}" : "餐廳收藏（開發版）";
-            int countries = CategoryService.Children(_data, null).Count();
-            CountText.Text = $"{_data.Restaurants.Count} 間餐廳 · {countries} 個國家";
-            StatusText.Text = $"版本 {_updater.CurrentVersion} · 資料存在 {DataStore.DataDirectory}";
+            RestaurantCountText.Text = $"{_data.Restaurants.Count} 間餐廳";
+            CountryCountText.Text = $"{CategoryService.Children(_data, null).Count()} 個國家";
+            CategoryCountText.Text = $"{_data.Categories.Count} 個分類";
+            StatusText.Text = $"餐廳收藏 · 版本 {_updater.CurrentVersion}";
+            OpenFolderButton.ToolTip = $"資料存在：{DataStore.DataDirectory}";
+        }
+
+        private void OpenDataFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(DataStore.DataDirectory);
+                Process.Start(new ProcessStartInfo(DataStore.DataDirectory) { UseShellExecute = true });
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or System.IO.IOException or UnauthorizedAccessException)
+            {
+                MessageBox.Show($"無法開啟資料夾：{ex.Message}", "開啟資料夾");
+            }
         }
 
         // ---------- Excel 匯出 / 匯入 ----------

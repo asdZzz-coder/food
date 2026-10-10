@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 using food.Services;
 
 namespace food.Models
@@ -35,8 +36,15 @@ namespace food.Models
         public required string PathText { get; init; }
 
         public string Name => Model.Name;
-        public string Subtitle => string.IsNullOrWhiteSpace(Model.Address) ? PathText : $"{PathText} · {Model.Address}";
-        public string Stars => Model.Rating > 0 ? new string('★', Model.Rating) : "";
+
+        /// <summary>第三行：地址、電話（都沒有時隱藏）。</summary>
+        public string Detail => string.Join("  ·  ", new[] { Model.Address, Model.Phone }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        public bool HasDetail => Detail.Length > 0;
+        public bool HasNote => !string.IsNullOrWhiteSpace(Model.Note);
+
+        /// <summary>右上角的評分標籤（未評分時隱藏）。</summary>
+        public bool HasRating => Model.Rating > 0;
+        public string RatingText => Model.Rating.ToString();
 
         public string Initial => string.IsNullOrWhiteSpace(Model.Name)
             ? "?"
@@ -49,13 +57,26 @@ namespace food.Models
         };
 
         /// <summary>依餐廳名稱固定挑一個頭像底色（同名永遠同色）。</summary>
-        public string AvatarColor
+        private string AvatarColor
         {
             get
             {
                 uint h = 2166136261; // FNV-1a，跨次啟動結果一致（string.GetHashCode 每次啟動都不同）
                 foreach (var c in Model.Name.Trim().ToUpperInvariant()) { h ^= c; h *= 16777619; }
                 return AvatarColors[h % (uint)AvatarColors.Length];
+            }
+        }
+
+        /// <summary>頭像底色：同一色系由亮到暗的斜向漸層。</summary>
+        public Brush AvatarBrush
+        {
+            get
+            {
+                var c = (Color)ColorConverter.ConvertFromString(AvatarColor);
+                var dark = Color.FromRgb((byte)(c.R * 0.78), (byte)(c.G * 0.78), (byte)(c.B * 0.78));
+                var brush = new LinearGradientBrush(c, dark, new Point(0, 0), new Point(1, 1));
+                brush.Freeze();
+                return brush;
             }
         }
 
@@ -68,8 +89,4 @@ namespace food.Models
         public override string ToString() => Display; // 下拉選單收合時顯示的文字
     }
 
-    public record RatingOption(int Value, string Display)
-    {
-        public override string ToString() => Display;
-    }
 }

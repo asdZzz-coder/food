@@ -115,7 +115,7 @@ namespace food
 
         private async Task CheckForUpdateAsync(bool manual)
         {
-            if (!_updater.IsInstalled)
+            if (!_updater.IsRelease)
             {
                 if (manual)
                     MessageBox.Show("目前是開發版（不是從安裝檔安裝的），無法線上更新。", "檢查更新");
@@ -128,6 +128,15 @@ namespace food
                 if (info == null)
                 {
                     if (manual) MessageBox.Show($"目前已是最新版（v{_updater.CurrentVersion}）。", "檢查更新");
+                    return;
+                }
+
+                // 從 APP 啟動器開的：新版由啟動器下載，這裡只提醒（啟動時的自動檢查不打擾，啟動器自己會標示可更新）
+                if (!_updater.IsInstalled)
+                {
+                    if (manual)
+                        MessageBox.Show($"發現新版本 {info.Version}（目前 {_updater.CurrentVersion}）。\n\n請到「APP 啟動器」按「更新到 v{info.Version}」，更新後從啟動器開啟新版。",
+                            "有新版本", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -624,7 +633,7 @@ namespace food
         private void UpdateStatus()
         {
             // 視窗標題列顯示版本：安裝版為「餐廳收藏 v1.0.0」，直接從 Visual Studio 執行則標示開發版
-            Title = _updater.IsInstalled ? $"餐廳收藏 v{_updater.CurrentVersion}" : "餐廳收藏（開發版）";
+            Title = _updater.IsRelease ? $"餐廳收藏 v{_updater.CurrentVersion}" : "餐廳收藏（開發版）";
             RestaurantCountText.Text = $"{_data.Restaurants.Count} 間餐廳";
             CountryCountText.Text = $"{CategoryService.Children(_data, null).Count()} 個國家";
             CategoryCountText.Text = $"{_data.Categories.Count} 個分類";
